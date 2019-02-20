@@ -1,10 +1,10 @@
-package com.etiantian
+package com.etiantian.utils
 
 import org.apache.flink.addons.hbase.TableInputFormat
-import org.apache.hadoop.hbase.client._
-import org.apache.flink.configuration.Configuration
-import org.apache.hadoop.hbase.{CellUtil, HBaseConfiguration, HConstants, TableName}
 import org.apache.flink.api.java.tuple._
+import org.apache.flink.configuration.Configuration
+import org.apache.hadoop.hbase.client._
+import org.apache.hadoop.hbase.{CellUtil, HBaseConfiguration, HConstants, TableName}
 
 import scala.reflect.ClassTag
 
@@ -31,7 +31,6 @@ class HBaseInputFormat[T <: Tuple: ClassTag] extends TableInputFormat[T] {
     for (cell <- r.rawCells()) {
       val qualifier = new String(CellUtil.cloneQualifier(cell))
       val value = new String(CellUtil.cloneValue(cell))
-      println(s"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|$qualifier|@@|$value|@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
       columnMap += (qualifier -> value)
     }
 
@@ -53,6 +52,9 @@ class HBaseInputFormat[T <: Tuple: ClassTag] extends TableInputFormat[T] {
   override def getScanner = {
     val scan = new Scan()
     scan.addFamily(family.getBytes())
+    columns.split(",").foreach(x => {
+      scan.addColumn(family.getBytes(), x.getBytes())
+    })
     scan
   }
 }
