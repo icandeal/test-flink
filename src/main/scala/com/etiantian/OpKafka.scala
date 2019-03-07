@@ -3,12 +3,14 @@ package com.etiantian
 import java.util.Properties
 
 import com.etiantian.utils.HBaseOutputFormat
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010
-import org.apache.flink.streaming.util.serialization.SimpleStringSchema
+import org.apache.flink.streaming.util.serialization.{KeyedDeserializationSchema, SimpleStringSchema, TypeInformationKeyValueSerializationSchema}
 import org.apache.flink.streaming.api.scala._
 import org.apache.hadoop.hbase.client.Put
+import org.json.JSONObject
 
 object OpKafka {
   def main(args: Array[String]): Unit = {
@@ -17,18 +19,35 @@ object OpKafka {
 
     val properties = new Properties()
     properties.setProperty("bootstrap.servers", "192.168.10.45:9092")
-    properties.setProperty("group.id", "t16")
+    properties.setProperty("group.id", "t1")
     properties.setProperty("auto.offset.reset", "latest")
 //    properties.setProperty("enable.auto.commit", "true")
 //    properties.setProperty("auto.commit.interval.ms", "1000")
 
     val consumer010 = new FlinkKafkaConsumer010[String](
       "ycf1",
-      new SimpleStringSchema(),
+      new KeyedDeserializationSchema[String]() {
+        override def isEndOfStream(nextElement: String) = false
+
+        override def deserialize(messageKey: Array[Byte], message: Array[Byte], topic: String, partition: Int, offset: Long) = {
+          val json = new JSONObject()
+          json.put("topic", topic)
+          json.put("partition", partition)
+          json.put("offset", offset)
+          json.put("key", if (messageKey == null) null else new String(messageKey))
+          json.put("value", if (message == null) null else new String(message))
+          json.toString()
+        }
+
+        override def getProducedType = BasicTypeInfo.STRING_TYPE_INFO
+      },
       properties
     ).setStartFromGroupOffsets()
 
-//    senv.addSource(consumer010).map(x => println(s"=====$x=="))
+    val dataStream = senv.addSource(consumer010)
+//      .print()
+    dataStream.map(x => println(s"=====$x====="))
+    dataStream.map(x => println(s"####$x####"))
 
 
     val parameter = new Configuration()
